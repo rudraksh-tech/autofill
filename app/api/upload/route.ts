@@ -8,6 +8,22 @@ import { s3PresignedUrl } from "@/lib/s3";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  // ── 0. Validate required env vars up front ──────────────────────────────
+  const missingEnv: string[] = [];
+  if (!process.env.GROQ_API_KEY) missingEnv.push("GROQ_API_KEY");
+  if (!process.env.S3_BUCKET_NAME) missingEnv.push("S3_BUCKET_NAME");
+  if (!process.env.APP_AWS_REGION) missingEnv.push("APP_AWS_REGION");
+  if (!process.env.APP_AWS_ACCESS_KEY_ID) missingEnv.push("APP_AWS_ACCESS_KEY_ID");
+  if (!process.env.APP_AWS_SECRET_ACCESS_KEY) missingEnv.push("APP_AWS_SECRET_ACCESS_KEY");
+
+  if (missingEnv.length > 0) {
+    console.error("[upload] Missing env vars:", missingEnv.join(", "));
+    return NextResponse.json(
+      { error: `Server misconfiguration: missing env vars: ${missingEnv.join(", ")}` },
+      { status: 500 }
+    );
+  }
+
   try {
     // ── 1. Parse multipart form data ────────────────────────────────────────
     const formData = await request.formData();
@@ -39,7 +55,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const buffer = Buffer.from(arrayBuffer);
 
     // ── 4. Extract text from PDF ─────────────────────────────────────────────
+    console.log("[upload] Parsing PDF...");
     const pdfText = await parsePdf(buffer);
+    console.log("[upload] PDF parsed, text length:", pdfText?.length ?? 0);
 
     if (!pdfText || pdfText.trim().length === 0) {
       return NextResponse.json(
@@ -52,16 +70,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // ── 5. Extract fields via Groq API ───────────────────────────────────────
+    console.log("[upload] Calling Groq API...");
     const fields = await extractWithGrok(pdfText);
+    console.log("[upload] Groq extraction done:", JSON.stringify(fields));
 
     // ── 6. Fill both DOCX templates and upload to S3 ─────────────────────────
+    console.log("[upload] Filling DOCX templates...");
     const { key1, key2 } = await fillDocx(fields);
+    console.log("[upload] DOCX filled, keys:", key1, key2);
 
     // ── 7. Generate presigned download URLs (valid 15 min) ───────────────────
+    console.log("[upload] Generating presigned URLs...");
     const [downloadUrl, downloadUrl2] = await Promise.all([
       s3PresignedUrl(key1),
       s3PresignedUrl(key2),
     ]);
+    console.log("[upload] Done.");
 
     return NextResponse.json({
       success: true,
@@ -72,7 +96,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   } catch (err: unknown) {
     const message =
       err instanceof Error ? err.message : "An unexpected error occurred.";
+    const stack = err instanceof Error ? err.stack : "";
     console.error("[upload] Error:", message);
+    console.error("[upload] Stack:", stack);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
