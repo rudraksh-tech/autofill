@@ -313,7 +313,7 @@ export default function HomePage() {
 
         {/* Footer */}
         <p className="text-center text-gray-400 text-xs mt-6">
-          Contact Rudraksh to add your own Place your <code className="text-gray-500">template.docx</code> files in the <code className="text-gray-500">templates/</code> folder
+          Contact Rudraksh to add your own your <code className="text-gray-500">template.docx</code> files in the <code className="text-gray-500">templates/</code> folder
         </p>
       </div>
     </main>
