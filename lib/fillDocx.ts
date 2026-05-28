@@ -1,23 +1,20 @@
 import Docxtemplater from "docxtemplater";
 import PizZip from "pizzip";
-import fs from "fs";
-import path from "path";
 import type { ExtractedFields } from "./types";
+import { s3GetBuffer, s3PutBuffer } from "./s3";
 
 /**
- * Fills a single DOCX template and writes it to the output directory.
- * @returns The absolute path to the generated file.
+ * Fills a single DOCX template fetched from S3 and uploads the result back to S3.
+ * @returns The S3 key of the generated file.
  */
 async function fillTemplate(
-  templatePath: string,
+  templateKey: string,
   fields: ExtractedFields,
-  outputFilename: string
+  outputKey: string
 ): Promise<string> {
-  if (!fs.existsSync(templatePath)) {
-    throw new Error(`DOCX template not found at: ${templatePath}`);
-  }
+  // Read template from S3
+  const templateBuffer = await s3GetBuffer(templateKey);
 
-  const templateBuffer = fs.readFileSync(templatePath);
   const zip = new PizZip(templateBuffer);
 
   // Uses default single-brace delimiters: {tag}
@@ -31,38 +28,40 @@ async function fillTemplate(
   const outputBuffer = doc.getZip().generate({
     type: "nodebuffer",
     compression: "DEFLATE",
-  });
+  }) as Buffer;
 
-  const outputDir = path.join(process.cwd(), "output");
-  if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true });
-  }
+  // Write generated file to S3
+  await s3PutBuffer(
+    outputKey,
+    outputBuffer,
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  );
 
-  const outputPath = path.join(outputDir, outputFilename);
-  fs.writeFileSync(outputPath, outputBuffer);
-  return outputPath;
+  return outputKey;
 }
 
 /**
  * Fills both template.docx and template2.docx with the extracted fields.
- * @returns Paths to both generated files.
+ * Templates are read from S3 under the "templates/" prefix.
+ * @returns S3 keys for both generated files.
  */
 export async function fillDocx(
   fields: ExtractedFields
-): Promise<{ path1: string; path2: string }> {
+): Promise<{ key1: string; key2: string }> {
   const timestamp = Date.now();
 
-  const path1 = await fillTemplate(
-    path.join(process.cwd(), "templates", "template.docx"),
-    fields,
-    `filled_${timestamp}_1.docx`
-  );
+  const [key1, key2] = await Promise.all([
+    fillTemplate(
+      "templates/template.docx",
+      fields,
+      `output/filled_${timestamp}_1.docx`
+    ),
+    fillTemplate(
+      "templates/template2.docx",
+      fields,
+      `output/filled_${timestamp}_2.docx`
+    ),
+  ]);
 
-  const path2 = await fillTemplate(
-    path.join(process.cwd(), "templates", "template2.docx"),
-    fields,
-    `filled_${timestamp}_2.docx`
-  );
-
-  return { path1, path2 };
+  return { key1, key2 };
 }

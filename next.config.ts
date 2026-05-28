@@ -1,8 +1,14 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // pdf-parse and docxtemplater use Node.js built-ins — keep them server-side only
-  serverExternalPackages: ["pdf-parse", "docxtemplater", "pizzip"],
+  // Keep heavy Node.js packages server-side only
+  serverExternalPackages: [
+    "pdf-parse",
+    "docxtemplater",
+    "pizzip",
+    "@aws-sdk/client-s3",
+    "@aws-sdk/s3-request-presigner",
+  ],
 };
 
 export default nextConfig;

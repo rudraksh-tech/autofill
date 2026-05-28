@@ -1,43 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
-import path from "path";
-import fs from "fs";
+import { s3PresignedUrl } from "@/lib/s3";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Redirects to a fresh presigned S3 URL for the given output key.
+ * Usage: GET /api/download?key=output/filled_123_1.docx
+ *
+ * Note: The upload route now returns presigned URLs directly, so this
+ * endpoint is only needed if you want to re-generate a download link later.
+ */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     const { searchParams } = request.nextUrl;
-    const file = searchParams.get("file");
+    const key = searchParams.get("key");
 
-    if (!file) {
-      return NextResponse.json({ error: "Missing file parameter." }, { status: 400 });
+    if (!key) {
+      return NextResponse.json(
+        { error: "Missing 'key' query parameter." },
+        { status: 400 }
+      );
     }
 
-    // Sanitise: strip any path traversal attempts
-    const safeFilename = path.basename(file);
-
-    // Only allow files that match our generated naming pattern
-    if (!/^filled_\d+_[12]\.docx$/.test(safeFilename)) {
-      return NextResponse.json({ error: "Invalid file name." }, { status: 400 });
+    // Only allow keys under the output/ prefix to prevent arbitrary S3 access
+    if (!key.startsWith("output/filled_") || !key.endsWith(".docx")) {
+      return NextResponse.json({ error: "Invalid key." }, { status: 400 });
     }
 
-    const filePath = path.join(process.cwd(), "output", safeFilename);
+    const url = await s3PresignedUrl(key);
 
-    if (!fs.existsSync(filePath)) {
-      return NextResponse.json({ error: "File not found." }, { status: 404 });
-    }
-
-    const fileBuffer = fs.readFileSync(filePath);
-
-    return new NextResponse(fileBuffer, {
-      status: 200,
-      headers: {
-        "Content-Type":
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "Content-Disposition": `attachment; filename="${safeFilename}"`,
-        "Content-Length": String(fileBuffer.length),
-      },
-    });
+    // Redirect the browser directly to the presigned S3 URL
+    return NextResponse.redirect(url);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Download failed.";
     console.error("[download] Error:", message);

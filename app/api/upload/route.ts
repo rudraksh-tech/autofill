@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import path from "path";
-import fs from "fs";
 import { parsePdf } from "@/lib/parsePdf";
 import { extractWithGrok } from "@/lib/extractWithGrok";
 import { fillDocx } from "@/lib/fillDocx";
+import { s3PresignedUrl } from "@/lib/s3";
 
 // Force dynamic so the route is never statically cached
 export const dynamic = "force-dynamic";
@@ -44,20 +43,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     if (!pdfText || pdfText.trim().length === 0) {
       return NextResponse.json(
-        { error: "Could not extract text from the PDF. The file may be scanned or image-based." },
+        {
+          error:
+            "Could not extract text from the PDF. The file may be scanned or image-based.",
+        },
         { status: 422 }
       );
     }
 
-    // ── 5. Extract fields via Grok API ───────────────────────────────────────
+    // ── 5. Extract fields via Groq API ───────────────────────────────────────
     const fields = await extractWithGrok(pdfText);
 
-    // ── 6. Fill both DOCX templates ──────────────────────────────────────────
-    const { path1, path2 } = await fillDocx(fields);
+    // ── 6. Fill both DOCX templates and upload to S3 ─────────────────────────
+    const { key1, key2 } = await fillDocx(fields);
 
-    // ── 7. Build download URLs ────────────────────────────────────────────────
-    const downloadUrl = `/api/download?file=${encodeURIComponent(path.basename(path1))}`;
-    const downloadUrl2 = `/api/download?file=${encodeURIComponent(path.basename(path2))}`;
+    // ── 7. Generate presigned download URLs (valid 15 min) ───────────────────
+    const [downloadUrl, downloadUrl2] = await Promise.all([
+      s3PresignedUrl(key1),
+      s3PresignedUrl(key2),
+    ]);
 
     return NextResponse.json({
       success: true,
