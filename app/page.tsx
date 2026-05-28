@@ -9,9 +9,6 @@ const FIELD_LABELS: Record<keyof ExtractedFields, string> = {
   name: "Full Name",
   address: "Address",
   dob: "Date of Birth",
-  annual_income: "Annual Income",
-  income_protection_benefit: "Income Protection Benefit",
-  deferral_period: "Deferral Period",
   occupation: "Occupation",
   smoking_status: "Smoking Status",
   mobile: "Mobile",
@@ -285,7 +282,7 @@ export default function HomePage() {
                     <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
                     </svg>
-                    Fact Find
+                    Template 1
                   </a>
                 )}
                 {downloadUrl2 && (
@@ -297,7 +294,7 @@ export default function HomePage() {
                     <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
                     </svg>
-                    Suitability
+                    Template 2
                   </a>
                 )}
                 <button
@@ -316,7 +313,7 @@ export default function HomePage() {
 
         {/* Footer */}
         <p className="text-center text-gray-400 text-xs mt-6">
-          Powered by Groq AI · Place your <code className="text-gray-500">template.docx</code> files in the <code className="text-gray-500">templates/</code> folder
+          Contact Rudraksh to add your own Place your <code className="text-gray-500">template.docx</code> files in the <code className="text-gray-500">templates/</code> folder
         </p>
       </div>
     </main>
