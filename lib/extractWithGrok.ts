@@ -11,11 +11,24 @@ const EMPTY_FIELDS: ExtractedFields = {
   email: "",
 };
 
-const SYSTEM_PROMPT = `You are a professional insurance document extraction AI.
-Extract the required fields from the provided insurance/application PDF text.
-Return ONLY valid JSON with no markdown, no code fences, no explanation.
-If any field is missing, return empty string for that field.
-JSON FORMAT:
+const SYSTEM_PROMPT = `You are a data extraction AI. Your ONLY job is to find and copy values that are EXPLICITLY present in the document text provided by the user.
+
+STRICT RULES:
+- NEVER invent, guess, or infer values. If a field is not clearly stated in the text, return "".
+- NEVER use example data, training data, or prior knowledge to fill fields.
+- Copy values EXACTLY as they appear in the document — do not reformat or paraphrase.
+- Return ONLY valid JSON. No markdown, no code fences, no explanation, no extra keys.
+
+FIELDS TO EXTRACT:
+- name: The full name of the policy holder or applicant (e.g. "Mr John Smith")
+- address: The full postal address of the applicant
+- dob: Date of birth of the applicant (any format found in the document)
+- occupation: The stated occupation or job title
+- smoking_status: Whether the person is a smoker or non-smoker
+- mobile: Mobile or phone number
+- email: Email address
+
+JSON FORMAT (return exactly this structure):
 {
   "name": "",
   "address": "",
@@ -41,6 +54,9 @@ export async function extractWithGrok(
     apiKey,
     baseURL: "https://api.groq.com/openai/v1",
   });
+
+  // Log first 500 chars of PDF text so you can verify what's actually being sent to the LLM
+  console.log("[extractWithGrok] PDF text preview (first 500 chars):", pdfText.slice(0, 500));
 
   const response = await client.chat.completions.create({
     model: "llama-3.3-70b-versatile",
