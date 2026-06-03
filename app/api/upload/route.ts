@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parsePdf } from "@/lib/parsePdf";
-import { extractWithGrok } from "@/lib/extractWithGrok";
+import { extractWithGemini } from "@/lib/extractWithGemini";
 import { fillDocx } from "@/lib/fillDocx";
 import { s3PresignedUrl } from "@/lib/s3";
 
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest): Promise<NextResponse> {
   // ── 0. Validate required env vars up front ──────────────────────────────
   const missingEnv: string[] = [];
-  if (!process.env.GROQ_API_KEY) missingEnv.push("GROQ_API_KEY");
+  if (!process.env.GEMINI_API_KEY) missingEnv.push("GEMINI_API_KEY");
   if (!process.env.S3_BUCKET_NAME) missingEnv.push("S3_BUCKET_NAME");
   if (!process.env.APP_AWS_REGION) missingEnv.push("APP_AWS_REGION");
   if (!process.env.APP_AWS_ACCESS_KEY_ID) missingEnv.push("APP_AWS_ACCESS_KEY_ID");
@@ -69,21 +69,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // ── 5. Extract fields via Groq API ───────────────────────────────────────
-    console.log("[upload] Calling Groq API...");
-    const fields = await extractWithGrok(pdfText);
-    console.log("[upload] Groq extraction done:", JSON.stringify(fields));
+    // ── 5. Extract fields via Gemini API ─────────────────────────────────────
+    console.log("[upload] Calling Gemini API...");
+    const fields = await extractWithGemini(pdfText);
+    console.log("[upload] Gemini extraction done:", JSON.stringify(fields, null, 2));
 
-    // ── 6. Fill both DOCX templates and upload to S3 ─────────────────────────
+    // ── 6. Fill all three DOCX templates and upload to S3 ────────────────────
     console.log("[upload] Filling DOCX templates...");
-    const { key1, key2 } = await fillDocx(fields);
-    console.log("[upload] DOCX filled, keys:", key1, key2);
+    const { key1, key2, key3 } = await fillDocx(fields);
+    console.log("[upload] DOCX filled, keys:", key1, key2, key3);
 
     // ── 7. Generate presigned download URLs (valid 15 min) ───────────────────
     console.log("[upload] Generating presigned URLs...");
-    const [downloadUrl, downloadUrl2] = await Promise.all([
+    const [downloadUrl, downloadUrl2, downloadUrl3] = await Promise.all([
       s3PresignedUrl(key1),
       s3PresignedUrl(key2),
+      s3PresignedUrl(key3),
     ]);
     console.log("[upload] Done.");
 
@@ -91,6 +92,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       success: true,
       downloadUrl,
       downloadUrl2,
+      downloadUrl3,
       fields,
     });
   } catch (err: unknown) {

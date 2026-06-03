@@ -1,7 +1,21 @@
-import OpenAI from "openai";
-import type { ExtractedFields } from "./types";
+// NOTE: This file is kept as a backup/reference for the original Groq-based extraction.
+// It uses its own local type to avoid conflicts with the updated ExtractedFields in types.ts.
+// The active extraction uses extractWithGemini.ts instead.
 
-const EMPTY_FIELDS: ExtractedFields = {
+import OpenAI from "openai";
+
+// Local flat type — intentionally separate from the main ExtractedFields
+interface GrokExtractedFields {
+  name: string;
+  address: string;
+  dob: string;
+  occupation: string;
+  smoking_status: string;
+  mobile: string;
+  email: string;
+}
+
+const EMPTY_FIELDS: GrokExtractedFields = {
   name: "",
   address: "",
   dob: "",
@@ -44,7 +58,7 @@ JSON FORMAT (return exactly this structure):
  */
 export async function extractWithGrok(
   pdfText: string
-): Promise<ExtractedFields> {
+): Promise<GrokExtractedFields> {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
     throw new Error("GROQ_API_KEY environment variable is not set.");
@@ -81,7 +95,7 @@ export async function extractWithGrok(
     .replace(/\s*```$/, "")
     .trim();
 
-  let parsed: Partial<ExtractedFields>;
+  let parsed: Partial<GrokExtractedFields>;
   try {
     parsed = JSON.parse(cleaned);
   } catch {

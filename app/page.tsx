@@ -1,19 +1,68 @@
 "use client";
 
 import { useState, useRef, useCallback, DragEvent, ChangeEvent } from "react";
-import type { ExtractedFields, UploadResponse } from "@/lib/types";
+import type { ExtractedFields, PersonFields, UploadResponse } from "@/lib/types";
 
 type AppState = "idle" | "uploading" | "success" | "error";
 
-const FIELD_LABELS: Record<keyof ExtractedFields, string> = {
+// Human-readable labels for person fields
+const PERSON_FIELD_LABELS: Partial<Record<keyof PersonFields, string>> = {
   name: "Full Name",
-  address: "Address",
   dob: "Date of Birth",
   occupation: "Occupation",
-  smoking_status: "Smoking Status",
+  address: "Address",
   mobile: "Mobile",
   email: "Email",
+  smoking_status: "Smoking Status",
+  gender: "Gender",
+  height: "Height",
+  weight: "Weight",
+  alcohol_per_week: "Alcohol / Week",
+  doctor_name: "Doctor Name",
+  doctor_address: "Doctor Address",
+  h2_blood_pressure: "Raised BP / Cholesterol",
+  h2_blood_pressure_conditions: "BP/Chol Conditions",
+  h3_treatment_4weeks: "Treatment 4+ Weeks",
+  h3_treatment_condition: "Treatment Condition",
+  chol_first_noticed: "Cholesterol First Noticed",
+  chol_last_reading: "Last Cholesterol Reading",
 };
+
+// Which person fields to show in the summary (most important ones)
+const SUMMARY_KEYS: Array<keyof PersonFields> = [
+  "name", "dob", "occupation", "address", "mobile", "email",
+  "smoking_status", "gender", "height", "weight",
+  "doctor_name", "h2_blood_pressure", "h2_blood_pressure_conditions",
+  "h3_treatment_4weeks", "h3_treatment_condition",
+  "chol_first_noticed", "chol_last_reading",
+];
+
+function PersonCard({ title, person }: { title: string; person: PersonFields }) {
+  const hasData = SUMMARY_KEYS.some((k) => person[k]);
+  if (!hasData) return null;
+
+  return (
+    <div className="rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{title}</p>
+      </div>
+      <div className="divide-y divide-gray-100">
+        {SUMMARY_KEYS.map((key) => {
+          const val = person[key];
+          if (!val) return null;
+          return (
+            <div key={key} className="flex items-start gap-3 px-4 py-2.5">
+              <span className="text-xs text-gray-400 w-44 shrink-0 pt-0.5">
+                {PERSON_FIELD_LABELS[key] ?? key}
+              </span>
+              <span className="text-xs text-gray-800 break-all font-medium">{val}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export default function HomePage() {
   const [state, setState] = useState<AppState>("idle");
@@ -21,6 +70,7 @@ export default function HomePage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [downloadUrl2, setDownloadUrl2] = useState<string | null>(null);
+  const [downloadUrl3, setDownloadUrl3] = useState<string | null>(null);
   const [fields, setFields] = useState<ExtractedFields | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -30,6 +80,7 @@ export default function HomePage() {
     setSelectedFile(null);
     setDownloadUrl(null);
     setDownloadUrl2(null);
+    setDownloadUrl3(null);
     setFields(null);
     setErrorMessage("");
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -100,6 +151,7 @@ export default function HomePage() {
 
       setDownloadUrl(data.downloadUrl ?? null);
       setDownloadUrl2(data.downloadUrl2 ?? null);
+      setDownloadUrl3(data.downloadUrl3 ?? null);
       setFields(data.fields ?? null);
       setState("success");
     } catch (err: unknown) {
@@ -108,6 +160,8 @@ export default function HomePage() {
       setState("error");
     }
   };
+
+  const isDualLife = fields && fields.life2 && fields.life2.name !== "";
 
   return (
     <main className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -122,7 +176,7 @@ export default function HomePage() {
           </div>
           <h1 className="text-3xl font-bold text-gray-900 tracking-tight">AutoFill</h1>
           <p className="text-gray-500 mt-2 text-sm">
-            Upload PDF — we extract the data and fill your DOCX templates automatically.
+            Upload a Royal London Ireland PDF — we extract all fields and fill your DOCX templates automatically.
           </p>
         </div>
 
@@ -231,7 +285,11 @@ export default function HomePage() {
           {/* Loading steps */}
           {state === "uploading" && (
             <div className="space-y-2">
-              {["Parsing PDF text…", "Extracting fields with Groq AI…", "Filling DOCX templates…"].map((step, i) => (
+              {[
+                "Parsing PDF text…",
+                "Extracting all fields with Gemini AI…",
+                "Filling DOCX templates…",
+              ].map((step, i) => (
                 <div key={i} className="flex items-center gap-2 text-xs text-gray-400">
                   <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" style={{ animationDelay: `${i * 200}ms` }} />
                   {step}
@@ -249,35 +307,58 @@ export default function HomePage() {
                 <svg className="w-5 h-5 text-emerald-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <p className="text-emerald-700 text-sm font-medium">Documents generated successfully!</p>
+                <p className="text-emerald-700 text-sm font-medium">
+                  Documents generated successfully!
+                  {isDualLife && (
+                    <span className="ml-2 text-xs bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full">Dual Life</span>
+                  )}
+                </p>
               </div>
 
-              {/* Extracted fields */}
-              {fields && (
+              {/* Policy summary */}
+              {fields?.policy?.policy_number && (
                 <div className="rounded-xl border border-gray-200 overflow-hidden">
                   <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Extracted Fields</p>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Policy Details</p>
                   </div>
                   <div className="divide-y divide-gray-100">
-                    {(Object.keys(FIELD_LABELS) as Array<keyof ExtractedFields>).map((key) => (
-                      <div key={key} className="flex items-start gap-3 px-4 py-2.5">
-                        <span className="text-xs text-gray-400 w-44 shrink-0 pt-0.5">{FIELD_LABELS[key]}</span>
-                        <span className="text-xs text-gray-800 break-all font-medium">
-                          {fields[key] || <span className="text-gray-300 font-normal italic">—</span>}
-                        </span>
-                      </div>
-                    ))}
+                    {[
+                      ["Policy Number", fields.policy.policy_number],
+                      ["Product", fields.policy.product],
+                      ["Basis", fields.policy.basis_of_cover],
+                      ["Life Cover (Life 1)", fields.policy.life_cover_amount],
+                      ["Life Cover (Life 2)", fields.policy.life_cover_amount_life2],
+                      ["Term", fields.policy.term],
+                      ["Payment", fields.policy.payment_frequency],
+                    ]
+                      .filter(([, v]) => v)
+                      .map(([label, value]) => (
+                        <div key={label} className="flex items-start gap-3 px-4 py-2.5">
+                          <span className="text-xs text-gray-400 w-44 shrink-0 pt-0.5">{label}</span>
+                          <span className="text-xs text-gray-800 break-all font-medium">{value}</span>
+                        </div>
+                      ))}
                   </div>
                 </div>
               )}
 
+              {/* Extracted person fields */}
+              {fields && (
+                <>
+                  <PersonCard title="Life 1 — Personal Details" person={fields.life1} />
+                  {isDualLife && (
+                    <PersonCard title="Life 2 — Personal Details" person={fields.life2} />
+                  )}
+                </>
+              )}
+
               {/* Download + Reset buttons */}
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-3">
                 {downloadUrl && (
                   <a
                     href={downloadUrl}
                     download
-                    className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition-all duration-200 shadow-sm active:scale-[0.98]"
+                    className="flex-1 min-w-[120px] flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition-all duration-200 shadow-sm active:scale-[0.98]"
                   >
                     <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
@@ -289,12 +370,24 @@ export default function HomePage() {
                   <a
                     href={downloadUrl2}
                     download
-                    className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm transition-all duration-200 shadow-sm active:scale-[0.98]"
+                    className="flex-1 min-w-[120px] flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm transition-all duration-200 shadow-sm active:scale-[0.98]"
                   >
                     <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
                     </svg>
                     Template 2
+                  </a>
+                )}
+                {downloadUrl3 && (
+                  <a
+                    href={downloadUrl3}
+                    download
+                    className="flex-1 min-w-[120px] flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-semibold text-sm transition-all duration-200 shadow-sm active:scale-[0.98]"
+                  >
+                    <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                    </svg>
+                    Template 2.1
                   </a>
                 )}
                 <button
@@ -313,7 +406,7 @@ export default function HomePage() {
 
         {/* Footer */}
         <p className="text-center text-gray-400 text-xs mt-6">
-          Contact Rudraksh to add your own your <code className="text-gray-500">template.docx</code> files in the <code className="text-gray-500">templates/</code> folder
+          Contact Rudraksh Jhaveri to add your own your <code className="text-gray-500">template.docx</code> files in the <code className="text-gray-500">templates/</code> folder
         </p>
       </div>
     </main>
